@@ -232,5 +232,5 @@ streamlit run streamlit_app.py
 ## Auteur
 
 **Nesho Kanthakumar**
-Etudiant en Data Science 
+Étudiant en Data Science 
 [GitHub](https://github.com/Nesho-k) · [LinkedIn](https://www.linkedin.com/in/nesho-kanthakumar-6354512a6/)
