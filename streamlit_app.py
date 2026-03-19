@@ -37,7 +37,7 @@ PLOTLY_LAYOUT = dict(
 # ─────────────────────────────────────────
 # Configuration
 # ─────────────────────────────────────────
-st.set_page_config(page_title="E-commerce Analyticss", layout="wide")
+st.set_page_config(page_title="E-commerce Analytics", layout="wide")
 
 st.markdown("""
 <style>
@@ -172,6 +172,20 @@ Streamlit se connecte directement à PostgreSQL, se rafraîchit en temps réel
 et sera déployé sur AWS avec une URL publique.
 </div>
 """, unsafe_allow_html=True)
+st.sidebar.markdown("---")
+st.sidebar.markdown(
+    """
+    <div style='text-align:center; padding: 4px 0 8px 0;'>
+        <a href='https://github.com/Nesho-k/e_commerce' target='_blank'
+           style='color:#FFFFFF; font-size:0.85rem; text-decoration:none;
+                  background:#2D6A4F; padding:6px 14px; border-radius:6px;
+                  display:inline-block;'>
+            Code source GitHub
+        </a>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
 st.sidebar.markdown("---")
 page = st.sidebar.radio(
     "Navigation",
