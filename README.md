@@ -130,7 +130,7 @@ analytics/
 
 ## Dashboard Streamlit
 
-Accessible en ligne : `http://ecommerce-alb-878817056.eu-north-1.elb.amazonaws.com/`
+Accessible en ligne : [LIEN](http://ecommerce-alb-878817056.eu-north-1.elb.amazonaws.com/)
 
 6 pages interactives :
 - **Vue Globale** : KPIs principaux (revenue, commandes, panier moyen, délai livraison)
