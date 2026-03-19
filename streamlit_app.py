@@ -37,7 +37,7 @@ PLOTLY_LAYOUT = dict(
 # ─────────────────────────────────────────
 # Configuration
 # ─────────────────────────────────────────
-st.set_page_config(page_title="E-commerce Analytics", layout="wide")
+st.set_page_config(page_title="E-commerce Analyticss", layout="wide")
 
 st.markdown("""
 <style>
