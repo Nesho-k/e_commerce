@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Real-Time E-commerce Analytics Platform
 
 > Pipeline de données complet simulant une plateforme e-commerce en temps réel.
@@ -74,3 +75,6 @@ uvicorn api.main:app --reload
 ## Dataset
 
 Basé sur le dataset public [Olist Brazilian E-commerce](https://www.kaggle.com/datasets/olistbr/brazilian-ecommerce) (Kaggle).
+=======
+# e_commerce
+>>>>>>> 7c2755513e61dc2c65937858055499f4ab9ec3db
