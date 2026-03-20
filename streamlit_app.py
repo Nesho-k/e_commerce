@@ -281,7 +281,11 @@ elif page == "Segmentation":
 </div>
 """, unsafe_allow_html=True)
 
-    seg = query("SELECT * FROM analytics.customer_segments")
+    try:
+        seg = query("SELECT * FROM analytics.customer_segments")
+    except Exception:
+        st.info("La table de segmentation n'existe pas encore. Lance le script RFM : `python scripts/rfm_segmentation.py`")
+        st.stop()
 
     if seg.empty:
         st.info("Aucune donnée de segmentation. Lance scripts/rfm_segmentation.py.")
