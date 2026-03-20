@@ -1,5 +1,7 @@
 x-airflow-common: &airflow-common
-  image: apache/airflow:2.8.1
+  build:
+    context: .
+    dockerfile: docker/Dockerfile.airflow
   environment:
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
     AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@airflow-postgres/airflow
@@ -13,10 +15,12 @@ x-airflow-common: &airflow-common
     ECOMMERCE_DB_USER: ${POSTGRES_USER}
     ECOMMERCE_DB_PASSWORD: ${POSTGRES_PASSWORD}
     ECOMMERCE_API_URL: http://api:8000
+    MLFLOW_TRACKING_URI: http://mlflow:5000
   volumes:
     - ./airflow/dags:/opt/airflow/dags
     - ./airflow/logs:/opt/airflow/logs
     - ./sql:/opt/airflow/sql
+    - ./scripts:/opt/airflow/scripts
   depends_on:
     airflow-postgres:
       condition: service_healthy
@@ -43,6 +47,22 @@ services:
       - "8501:8501"
     env_file:
       - .env
+    restart: unless-stopped
+
+  # ─── MLflow (tracking ML) ──────────────────────────────
+  mlflow:
+    image: python:3.11-slim
+    command: >
+      bash -c "pip install mlflow psycopg2-binary --quiet &&
+               mlflow server
+               --host 0.0.0.0
+               --port 5000
+               --backend-store-uri sqlite:///mlflow/mlflow.db
+               --default-artifact-root /mlflow/artifacts"
+    ports:
+      - "5000:5000"
+    volumes:
+      - mlflow_data:/mlflow
     restart: unless-stopped
 
   # ─── PostgreSQL Airflow (métadonnées) ──────────────────
@@ -102,3 +122,4 @@ services:
 
 volumes:
   airflow_pg_data:
+  mlflow_data:

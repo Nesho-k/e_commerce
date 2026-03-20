@@ -9,6 +9,8 @@ import plotly.express as px
 import streamlit as st
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
 
 load_dotenv()
 
@@ -189,7 +191,7 @@ st.sidebar.markdown(
 st.sidebar.markdown("---")
 page = st.sidebar.radio(
     "Navigation",
-    ["Vue Globale", "Revenue", "Top Produits", "Géographie", "Clients", "Vendeurs"],
+    ["Vue Globale", "Segmentation", "Revenue", "Top Produits", "Géographie", "Clients", "Vendeurs"],
 )
 
 
@@ -264,7 +266,152 @@ if page == "Vue Globale":
 
 
 # ─────────────────────────────────────────
-# PAGE 2 — Revenue
+# PAGE 2 — Segmentation RFM
+# ─────────────────────────────────────────
+elif page == "Segmentation":
+    st.title("Segmentation clients — RFM + K-Means")
+
+    st.markdown("""
+<div style='background:#F0F4F1; border-left:4px solid #52B788; border-radius:8px; padding:12px 16px; margin-bottom:16px; color:#2D6A4F; font-size:0.92rem'>
+    La segmentation RFM analyse chaque client selon trois dimensions : <strong>Recency</strong> (jours depuis le dernier achat),
+    <strong>Frequency</strong> (nombre de commandes) et <strong>Monetary</strong> (montant total dépensé).
+    Un algorithme K-Means regroupe ensuite les clients en 4 segments. Dans le dataset Olist, 97% des clients
+    n'achètent qu'une seule fois — les labels sont donc <strong>relatifs</strong> : "Clients fidèles" désigne les meilleurs
+    acheteurs uniques (récents, bon panier), pas nécessairement des clients multi-achats.
+</div>
+""", unsafe_allow_html=True)
+
+    seg = query("SELECT * FROM analytics.customer_segments")
+
+    if seg.empty:
+        st.info("Aucune donnée de segmentation. Lance scripts/rfm_segmentation.py.")
+    else:
+        SEGMENT_COLORS = {
+            "Champions":       GREEN_DARK,
+            "Clients fidèles": GREEN_MID,
+            "A risque":        YELLOW,
+            "Inactifs":        RED,
+        }
+
+        summary = seg.groupby("segment").agg(
+            nb_clients=("customer_unique_id", "count"),
+            recency_med=("recency", "median"),
+            frequency_med=("frequency", "median"),
+            monetary_med=("monetary", "median"),
+        ).reset_index().sort_values("monetary_med", ascending=False)
+
+        col1, col2, col3, col4 = st.columns(4)
+        for col, (_, row) in zip([col1, col2, col3, col4], summary.iterrows()):
+            col.metric(row["segment"], f"{int(row['nb_clients']):,} clients")
+
+        st.markdown("---")
+        st.subheader("Visualisation des clusters K-Means (ACP 2D)")
+        st.caption(
+            "Les 3 dimensions RFM sont réduites à 2 composantes principales (ACP) pour la visualisation. "
+            "Échantillon de 5 000 clients."
+        )
+
+        sample = seg.sample(min(5000, len(seg)), random_state=42).copy()
+
+        # Écrêtage des outliers au 99e percentile avant PCA
+        for col in ["recency", "frequency", "monetary"]:
+            cap = sample[col].quantile(0.99)
+            sample[col] = sample[col].clip(upper=cap)
+
+        features_scaled = StandardScaler().fit_transform(sample[["recency", "frequency", "monetary"]])
+        pca = PCA(n_components=2, random_state=42)
+        pca_coords = pca.fit_transform(features_scaled)
+        sample["PC1"] = pca_coords[:, 0]
+        sample["PC2"] = pca_coords[:, 1]
+        variance_explained = pca.explained_variance_ratio_ * 100
+
+        fig_pca = px.scatter(
+            sample,
+            x="PC1", y="PC2",
+            color="segment",
+            color_discrete_map=SEGMENT_COLORS,
+            opacity=0.55,
+            title="Clusters K-Means projetés sur 2 composantes principales (ACP)",
+            labels={
+                "PC1": f"PC1 ({variance_explained[0]:.1f}% de variance expliquée)",
+                "PC2": f"PC2 ({variance_explained[1]:.1f}% de variance expliquée)",
+            },
+            height=520,
+        )
+        fig_pca.update_traces(marker=dict(size=5))
+        fig_pca.update_layout(
+            legend=dict(
+                font=dict(size=14),
+                title=dict(text="Segment", font=dict(size=15)),
+                itemsizing="constant",
+            )
+        )
+        st.plotly_chart(apply_layout(fig_pca), use_container_width=True)
+
+        st.markdown("---")
+
+        col1, col2 = st.columns(2)
+        with col1:
+            fig = px.bar(
+                summary.sort_values("nb_clients", ascending=False),
+                x="segment", y="nb_clients",
+                title="Nombre de clients par segment",
+                labels={"segment": "Segment", "nb_clients": "Nb clients"},
+                color="segment",
+                color_discrete_map=SEGMENT_COLORS,
+            )
+            st.plotly_chart(apply_layout(fig), use_container_width=True)
+
+        with col2:
+            fig2 = px.bar(
+                summary,
+                x="segment", y="monetary_med",
+                title="Panier médian par segment (R$)",
+                labels={"segment": "Segment", "monetary_med": "Montant médian (R$)"},
+                color="segment",
+                color_discrete_map=SEGMENT_COLORS,
+            )
+            st.plotly_chart(apply_layout(fig2), use_container_width=True)
+
+        col1, col2 = st.columns(2)
+        with col1:
+            fig3 = px.bar(
+                summary.sort_values("recency_med"),
+                x="segment", y="recency_med",
+                title="Recency médiane — jours depuis le dernier achat",
+                labels={"segment": "Segment", "recency_med": "Jours"},
+                color="segment",
+                color_discrete_map=SEGMENT_COLORS,
+            )
+            st.plotly_chart(apply_layout(fig3), use_container_width=True)
+
+        with col2:
+            fig4 = px.bar(
+                summary.sort_values("frequency_med", ascending=False),
+                x="segment", y="frequency_med",
+                title="Fréquence médiane — nombre de commandes",
+                labels={"segment": "Segment", "frequency_med": "Nb commandes"},
+                color="segment",
+                color_discrete_map=SEGMENT_COLORS,
+            )
+            st.plotly_chart(apply_layout(fig4), use_container_width=True)
+
+        st.markdown("---")
+        st.subheader("Profil détaillé par segment")
+        st.dataframe(
+            summary.rename(columns={
+                "segment": "Segment",
+                "nb_clients": "Nb clients",
+                "recency_med": "Recency médiane (j)",
+                "frequency_med": "Frequency médiane",
+                "monetary_med": "Monetary médiane (R$)",
+            }),
+            use_container_width=True,
+        )
+
+
+# ─────────────────────────────────────────
+# PAGE 3 — Revenue
 # ─────────────────────────────────────────
 elif page == "Revenue":
     st.title("Revenue")
@@ -509,7 +656,7 @@ elif page == "Clients":
 
 
 # ─────────────────────────────────────────
-# PAGE 6 — Vendeurs
+# PAGE 7 — Vendeurs
 # ─────────────────────────────────────────
 elif page == "Vendeurs":
     st.title("Performance Vendeurs")
