@@ -1,6 +1,6 @@
 # Real-Time E-commerce Analytics Platform
 
-Projet de Data Science appliqué à l'e-commerce : segmentation des clients par K-Means (RFM), réduction de dimension par ACP, tracking MLflow — le tout alimenté par un pipeline de données en temps réel (FastAPI, Airflow, PostgreSQL, AWS).
+Projet de Data Science appliqué à l'e-commerce : segmentation des clients par K-Means (RFM), réduction de dimension par ACP, tracking MLflow, le tout alimenté par un pipeline de données en temps réel (FastAPI, Airflow, PostgreSQL, AWS).
 
 ---
 
@@ -12,7 +12,7 @@ Ce projet simule l'infrastructure data d'une vraie entreprise e-commerce.
 
 **Simulation temps réel** : une API FastAPI génère de nouvelles commandes toutes les 15 minutes, comme si l'entreprise continuait son activité en 2026. Les commandes suivent un cycle de vie réaliste (`processing` → `shipped` → `delivered`), avec des délais de livraison variables selon la région, une saisonnalité simulée (Black Friday, fêtes), et des avis clients générés automatiquement à la livraison.
 
-**Objectif** : construire un projet de Data Science complet, de la donnée brute jusqu'au modèle en production. La partie Machine Learning : segmentation des clients par RFM + K-Means avec visualisation ACP et tracking MLflow — est le cœur du projet. Le pipeline Data Engineering (ETL, Airflow, AWS) est l'infrastructure qui permet de l'alimenter et de le faire tourner automatiquement en production.
+**Objectif** : construire un projet de Data Science complet, de la donnée brute jusqu'au modèle en production. La partie Machine Learning (segmentation des clients par RFM + K-Means avec visualisation ACP et tracking MLflow) est le cœur du projet. Le pipeline Data Engineering (ETL, Airflow, AWS) est l'infrastructure qui permet de l'alimenter et de le faire tourner automatiquement en production.
 
 ---
 
@@ -51,7 +51,7 @@ Apache Airflow (orchestration toutes les 15 min)
 FastAPI (simulation commandes)
         │
         ▼
-Apache Airflow — DAG quotidien ML
+Apache Airflow : DAG quotidien ML
         │
         └── RFM Segmentation
                 ├── Calcul Recency / Frequency / Monetary
@@ -62,7 +62,7 @@ Apache Airflow — DAG quotidien ML
 
 ---
 
-## Segmentation des clients — RFM + K-Means + ACP
+## Segmentation des clients : RFM + K-Means + ACP
 
 C'est le cœur data science du projet. Un DAG Airflow tourne quotidiennement pour segmenter automatiquement les clients en 4 groupes selon leur comportement d'achat.
 
@@ -81,11 +81,11 @@ C'est le cœur data science du projet. Un DAG Airflow tourne quotidiennement pou
 | Segment | Caractéristiques |
 |---|---|
 | Champions | Multi-achats, montants élevés, récents |
-| Clients fidèles | Récents, bon panier — meilleurs acheteurs uniques |
+| Clients fidèles | Récents, bon panier, meilleurs acheteurs uniques |
 | A risque | Gros panier historique, inactifs depuis longtemps |
 | Inactifs | Anciens clients, faible engagement |
 
-> Le segment "Inactifs" représente ~93% des clients, cohérent avec le taux de réachat réel de 2,9% du dataset Olist — caractéristique structurelle du e-commerce brésilien 2016-2018.
+> Le segment "Inactifs" représente ~93% des clients, cohérent avec le taux de réachat réel de 2,9% du dataset Olist, caractéristique structurelle du e-commerce brésilien 2016-2018.
 
 **Visualisation ACP :** les 3 dimensions RFM (non visualisables directement) sont projetées en 2D via une Analyse en Composantes Principales pour représenter la séparation des clusters. Les axes affichent le pourcentage de variance expliquée.
 
@@ -182,13 +182,13 @@ analytics/
 
 ## Dashboards
 
-### Streamlit — temps réel
+### Streamlit : temps réel
 
 Accessible en ligne : [LIEN](http://ecommerce-alb-878817056.eu-north-1.elb.amazonaws.com/)
 
 7 pages interactives connectées directement à PostgreSQL (AWS RDS) :
 - **Vue Globale** : KPIs principaux (revenue, commandes, panier moyen, délai livraison)
-- **Segmentation clients** : RFM + K-Means — 4 segments avec visualisation ACP 2D
+- **Segmentation clients** : RFM + K-Means, 4 segments avec visualisation ACP 2D
 - **Revenue** : évolution mensuelle et croissance du CA
 - **Top Produits** : classement des catégories avec filtres
 - **Géographie** : performance par état brésilien
@@ -197,7 +197,7 @@ Accessible en ligne : [LIEN](http://ecommerce-alb-878817056.eu-north-1.elb.amazo
 
 > Streamlit est privilégié pour le dashboard en ligne car il permet une connexion directe à PostgreSQL et une actualisation en temps réel, sans dépendance à un service cloud tiers.
 
-### Power BI — analyse statique
+### Power BI : analyse statique
 
 Dashboard 6 pages connecté à PostgreSQL via DirectQuery : vue globale, revenue, top produits, géographie, clients, vendeurs. Utilisé pour la mise en forme orientée reporting et la maîtrise de l'outil BI standard en entreprise.
 
