@@ -55,7 +55,10 @@ st.markdown("""
 }
 
 /* Bouton actualiser */
-[data-testid="stSidebar"] .stButton button {
+[data-testid="stSidebar"] .stButton button,
+[data-testid="stSidebar"] [data-testid="stButton"] button,
+[data-testid="stSidebar"] button[kind="secondary"],
+[data-testid="stSidebar"] button {
     background-color: #1A4731 !important;
     color: #FFFFFF !important;
     border: 2px solid #FFFFFF !important;
@@ -65,7 +68,8 @@ st.markdown("""
     padding: 12px 0 !important;
     width: 100% !important;
 }
-[data-testid="stSidebar"] .stButton button:hover {
+[data-testid="stSidebar"] .stButton button:hover,
+[data-testid="stSidebar"] button:hover {
     background-color: #1A4731 !important;
     color: #FFFFFF !important;
     opacity: 0.85;
