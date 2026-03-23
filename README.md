@@ -1,6 +1,6 @@
 # Real-Time E-commerce Analytics Platform
 
-Pipeline de données complet simulant une plateforme e-commerce en temps réel, avec ingestion dynamique, orchestration, stockage, transformation et visualisation.
+Projet de Data Science appliqué à l'e-commerce : segmentation des clients par K-Means (RFM), réduction de dimension par ACP, tracking MLflow — le tout alimenté par un pipeline de données en temps réel (FastAPI, Airflow, PostgreSQL, AWS).
 
 ---
 
@@ -12,7 +12,18 @@ Ce projet simule l'infrastructure data d'une vraie entreprise e-commerce.
 
 **Simulation temps réel** : une API FastAPI génère de nouvelles commandes toutes les 15 minutes, comme si l'entreprise continuait son activité en 2026. Les commandes suivent un cycle de vie réaliste (`processing` → `shipped` → `delivered`), avec des délais de livraison variables selon la région, une saisonnalité simulée (Black Friday, fêtes), et des avis clients générés automatiquement à la livraison.
 
-**Objectif** : démontrer la capacité à construire un pipeline de données de bout en bout, du stockage brut jusqu'à la visualisation des KPIs business, tout en gérant l'arrivée continue de nouvelles données — le dashboard n'est pas statique, il reflète l'état réel de la base à chaque instant.
+**Objectif** : construire un projet de Data Science complet, de la donnée brute jusqu'au modèle en production. La partie Machine Learning : segmentation des clients par RFM + K-Means avec visualisation ACP et tracking MLflow — est le cœur du projet. Le pipeline Data Engineering (ETL, Airflow, AWS) est l'infrastructure qui permet de l'alimenter et de le faire tourner automatiquement en production.
+
+---
+
+## Compétences démontrées
+
+| Compétence | Ce qui est fait dans ce projet |
+|---|---|
+| **Machine Learning** | Segmentation RFM + K-Means, ACP pour la visualisation, Silhouette score, tracking MLflow, déploiement automatisé via Airflow |
+| **SQL** | Modélisation 3 couches (raw / clean / analytics), plus de 15 requêtes analytiques (CLV, cohortes, géographie, performance vendeurs...) |
+| **Power BI** | Dashboard 6 pages connecté à PostgreSQL via DirectQuery (revenue, top produits, géographie, clients, vendeurs) |
+| **Data Engineering** | Pipeline ETL toutes les 15 min, orchestration Airflow, simulation temps réel, déploiement AWS (RDS + EC2 + ALB), CI/CD GitHub Actions |
 
 ---
 
@@ -32,12 +43,51 @@ Apache Airflow (orchestration toutes les 15 min)
         PostgreSQL (AWS RDS)
         ├── raw       : données brutes Olist + commandes simulées
         ├── clean     : données nettoyées et enrichies
-        └── analytics : KPIs business (revenue, CLV, top produits...)
+        └── analytics : KPIs business + segments clients
                 │
-                ▼
-        Streamlit (dashboard temps réel)
-        Power BI  (dashboard statique)
+                ├── Streamlit (dashboard temps réel)
+                └── Power BI  (dashboard statique)
+
+FastAPI (simulation commandes)
+        │
+        ▼
+Apache Airflow — DAG quotidien ML
+        │
+        └── RFM Segmentation
+                ├── Calcul Recency / Frequency / Monetary
+                ├── K-Means (4 clusters) + Silhouette score
+                ├── MLflow (tracking des runs)
+                └── analytics.customer_segments
 ```
+
+---
+
+## Segmentation des clients — RFM + K-Means + ACP
+
+C'est le cœur data science du projet. Un DAG Airflow tourne quotidiennement pour segmenter automatiquement les clients en 4 groupes selon leur comportement d'achat.
+
+**Méthode :**
+1. Calcul des métriques RFM sur `clean.orders` + `clean.payments`
+   - **Recency** : jours depuis le dernier achat
+   - **Frequency** : nombre de commandes
+   - **Monetary** : montant total dépensé
+2. Standardisation (StandardScaler) + clustering K-Means (4 clusters)
+3. Évaluation via Silhouette score (0.78 sur les données de production)
+4. Tracking des runs avec MLflow (paramètres, métriques, modèle sérialisé)
+5. Sauvegarde dans `analytics.customer_segments`
+
+**Segments identifiés :**
+
+| Segment | Caractéristiques |
+|---|---|
+| Champions | Multi-achats, montants élevés, récents |
+| Clients fidèles | Récents, bon panier — meilleurs acheteurs uniques |
+| A risque | Gros panier historique, inactifs depuis longtemps |
+| Inactifs | Anciens clients, faible engagement |
+
+> Le segment "Inactifs" représente ~93% des clients, cohérent avec le taux de réachat réel de 2,9% du dataset Olist — caractéristique structurelle du e-commerce brésilien 2016-2018.
+
+**Visualisation ACP :** les 3 dimensions RFM (non visualisables directement) sont projetées en 2D via une Analyse en Composantes Principales pour représenter la séparation des clusters. Les axes affichent le pourcentage de variance expliquée.
 
 ---
 
@@ -49,6 +99,7 @@ Apache Airflow (orchestration toutes les 15 min)
 | Orchestration | Apache Airflow |
 | Stockage | PostgreSQL (AWS RDS) |
 | Transformation | SQL (3 couches : raw / clean / analytics) |
+| Machine Learning | scikit-learn (K-Means), MLflow |
 | Visualisation | Streamlit, Power BI |
 | Déploiement | AWS EC2, Docker, GitHub Actions |
 
@@ -107,7 +158,8 @@ analytics/
 ├── geo_analysis            Analyse géographique par état brésilien
 ├── payment_analysis        Répartition des modes de paiement
 ├── cohort_retention        Rétention clients par cohorte mensuelle
-└── kpi_summary             Tableau de bord global
+├── kpi_summary             Tableau de bord global
+└── customer_segments       Segments RFM (généré par K-Means)
 ```
 
 ---
@@ -128,19 +180,26 @@ analytics/
 
 ---
 
-## Dashboard Streamlit
+## Dashboards
+
+### Streamlit — temps réel
 
 Accessible en ligne : [LIEN](http://ecommerce-alb-878817056.eu-north-1.elb.amazonaws.com/)
 
-6 pages interactives :
+7 pages interactives connectées directement à PostgreSQL (AWS RDS) :
 - **Vue Globale** : KPIs principaux (revenue, commandes, panier moyen, délai livraison)
+- **Segmentation clients** : RFM + K-Means — 4 segments avec visualisation ACP 2D
 - **Revenue** : évolution mensuelle et croissance du CA
 - **Top Produits** : classement des catégories avec filtres
 - **Géographie** : performance par état brésilien
 - **Clients** : distribution des dépenses, CLV, taux de réachat
 - **Vendeurs** : classement et performance des vendeurs
 
-> Streamlit est utilisé à la place de Power BI Service car il permet une connexion directe à PostgreSQL, une actualisation en temps réel sans dépendance à un service cloud tiers, et reste accessible via une simple URL publique.
+> Streamlit est privilégié pour le dashboard en ligne car il permet une connexion directe à PostgreSQL et une actualisation en temps réel, sans dépendance à un service cloud tiers.
+
+### Power BI — analyse statique
+
+Dashboard 6 pages connecté à PostgreSQL via DirectQuery : vue globale, revenue, top produits, géographie, clients, vendeurs. Utilisé pour la mise en forme orientée reporting et la maîtrise de l'outil BI standard en entreprise.
 
 ---
 
@@ -165,13 +224,15 @@ e-commerce/
 │   └── data_generator.py     Générateur de commandes réalistes
 ├── airflow/
 │   └── dags/
-│       └── ecommerce_pipeline.py   DAG ETL (extract/transform/load)
+│       ├── ecommerce_pipeline.py   DAG ETL (extract/transform/load, toutes les 15 min)
+│       └── rfm_pipeline.py         DAG segmentation RFM + K-Means (quotidien)
 ├── sql/
 │   ├── clean/                Scripts SQL couche clean (7 fichiers)
 │   └── analytics/            Scripts SQL couche analytics (8 fichiers)
 ├── scripts/
 │   ├── load_historical_data.py     Chargement dataset Olist
-│   └── run_sql_layer.py            Exécution couches SQL
+│   ├── run_sql_layer.py            Exécution couches SQL
+│   └── rfm_segmentation.py         Segmentation RFM + K-Means + MLflow
 ├── docker/
 │   ├── Dockerfile.api
 │   └── Dockerfile.streamlit
