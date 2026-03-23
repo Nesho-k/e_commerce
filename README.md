@@ -23,7 +23,7 @@ Ce projet simule l'infrastructure data d'une vraie entreprise e-commerce.
 | **Machine Learning** | Segmentation RFM + K-Means, ACP pour la visualisation, Silhouette score, tracking MLflow, déploiement automatisé via Airflow |
 | **SQL** | Modélisation 3 couches (raw / clean / analytics), plus de 15 requêtes analytiques (CLV, cohortes, géographie, performance vendeurs...) |
 | **Power BI** | Dashboard 6 pages connecté à PostgreSQL via DirectQuery (revenue, top produits, géographie, clients, vendeurs) |
-| **Data Engineering** | Pipeline ETL toutes les 15 min, orchestration Airflow, simulation temps réel, déploiement AWS (RDS + EC2 + ALB), CI/CD GitHub Actions |
+| **Data Engineering** | Pipeline ETL toutes les 15 min, orchestration Airflow, simulation temps réel |
 | **Déploiement Cloud** | Déploiement AWS (RDS + EC2 + ALB), CI/CD GitHub Actions |
 
 ---
