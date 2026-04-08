@@ -30,36 +30,11 @@ Ce projet simule l'infrastructure data d'une vraie entreprise e-commerce.
 
 ## Architecture
 
-```
-FastAPI (simulation commandes)
-        │
-        ▼
-Apache Airflow (orchestration toutes les 15 min)
-        │
-        ├── Extract  → appel API, insertion dans PostgreSQL (raw)
-        ├── Transform → nettoyage SQL (couche clean)
-        └── Load     → calcul des KPIs (couche analytics)
-                │
-                ▼
-        PostgreSQL (AWS RDS)
-        ├── raw       : données brutes Olist + commandes simulées
-        ├── clean     : données nettoyées et enrichies
-        └── analytics : KPIs business + segments clients
-                │
-                ├── Streamlit (dashboard temps réel)
-                └── Power BI  (dashboard statique)
+Le projet s'articule autour de deux pipelines Airflow indépendants.
 
-FastAPI (simulation commandes)
-        │
-        ▼
-Apache Airflow : DAG quotidien ML
-        │
-        └── RFM Segmentation
-                ├── Calcul Recency / Frequency / Monetary
-                ├── K-Means (4 clusters) + Silhouette score
-                ├── MLflow (tracking des runs)
-                └── analytics.customer_segments
-```
+**Pipeline ETL (toutes les 15 minutes)** : FastAPI génère un batch de commandes simulées, Airflow les insère en base (couche raw), les nettoie (couche clean) puis recalcule les KPIs (couche analytics). Les dashboards Streamlit et Power BI se connectent directement à cette couche analytics.
+
+**Pipeline ML (quotidien)** : un second DAG Airflow calcule les scores RFM de chaque client, entraîne le K-Means, track les métriques dans MLflow et sauvegarde les segments dans `analytics.customer_segments`.
 
 ---
 
@@ -129,39 +104,13 @@ Toutes les 15 minutes, Airflow déclenche un cycle complet :
 
 ## Modélisation SQL (3 couches)
 
-```
-raw/
-├── raw_orders              Commandes brutes
-├── raw_order_items         Articles commandés
-├── raw_order_payments      Paiements
-├── raw_order_reviews       Avis clients
-├── raw_customers           Clients
-├── raw_products            Produits
-├── raw_sellers             Vendeurs
-└── raw_product_category_translation
+La base de données est organisée en trois couches progressives.
 
-clean/
-├── orders                  Commandes nettoyées + délais calculés
-├── order_items             Articles enrichis avec catégories traduites
-├── payments                Paiements agrégés (1 ligne par commande)
-├── customers               Clients normalisés
-├── products                Produits nettoyés
-├── sellers                 Vendeurs
-└── reviews                 Avis clients
+**raw** : données brutes telles qu'elles arrivent — commandes, articles, paiements, avis, clients, produits, vendeurs. Aucune transformation, insertion directe depuis l'API.
 
-analytics/
-├── daily_revenue           Chiffre d'affaires journalier
-├── monthly_revenue         Chiffre d'affaires mensuel + croissance
-├── top_products            Top catégories par revenue
-├── top_categories          Détail par catégorie
-├── customer_lifetime_value CLV, panier moyen, taux de réachat
-├── seller_performance      Performance vendeurs (revenue, notes, délais)
-├── geo_analysis            Analyse géographique par état brésilien
-├── payment_analysis        Répartition des modes de paiement
-├── cohort_retention        Rétention clients par cohorte mensuelle
-├── kpi_summary             Tableau de bord global
-└── customer_segments       Segments RFM (généré par K-Means)
-```
+**clean** : données nettoyées et enrichies — valeurs nulles traitées, délais de livraison calculés, catégories traduites en anglais, paiements agrégés à la commande. C'est la couche de référence pour les analyses.
+
+**analytics** : KPIs précalculés prêts à être consommés par les dashboards — revenue journalier et mensuel, top catégories, valeur vie client, performance vendeurs, analyse géographique, rétention par cohorte, et segments RFM générés par le K-Means.
 
 ---
 
@@ -206,44 +155,20 @@ Dashboard 6 pages connecté à PostgreSQL via DirectQuery : vue globale, revenue
 
 ## Déploiement AWS
 
-```
-AWS RDS (PostgreSQL)     → base de données managée
-AWS EC2 (t3.medium)      → FastAPI + Airflow + Streamlit (Docker)
-AWS ALB                  → load balancer (port 80)
-GitHub Actions           → CI/CD automatique à chaque git push
-```
+L'ensemble tourne sur AWS. La base de données est hébergée sur RDS (PostgreSQL managé), les services FastAPI, Airflow et Streamlit sont conteneurisés sur une instance EC2 t3.medium, et un Application Load Balancer expose Streamlit sur une URL publique. Chaque `git push` déclenche automatiquement le redéploiement via GitHub Actions.
 
 ---
 
 ## Structure du projet
 
-```
-e-commerce/
-├── api/
-│   ├── main.py               API FastAPI (endpoints + lifecycle)
-│   ├── models.py             Modèles Pydantic
-│   └── data_generator.py     Générateur de commandes réalistes
-├── airflow/
-│   └── dags/
-│       ├── ecommerce_pipeline.py   DAG ETL (extract/transform/load, toutes les 15 min)
-│       └── rfm_pipeline.py         DAG segmentation RFM + K-Means (quotidien)
-├── sql/
-│   ├── clean/                Scripts SQL couche clean (7 fichiers)
-│   └── analytics/            Scripts SQL couche analytics (8 fichiers)
-├── scripts/
-│   ├── load_historical_data.py     Chargement dataset Olist
-│   ├── run_sql_layer.py            Exécution couches SQL
-│   └── rfm_segmentation.py         Segmentation RFM + K-Means + MLflow
-├── docker/
-│   ├── Dockerfile.api
-│   └── Dockerfile.streamlit
-├── data/raw/                 Dataset Olist (non versionné)
-├── streamlit_app.py          Dashboard temps réel
-├── docker-compose.yml        Orchestration Docker
-├── .github/workflows/
-│   └── deploy.yml            CI/CD GitHub Actions
-└── .env.example              Template variables d'environnement
-```
+- `api/` : API FastAPI avec générateur de commandes réalistes (saisonnalité, cycle de vie, délais par état)
+- `airflow/dags/` : deux DAGs — ETL toutes les 15 min et segmentation RFM quotidienne
+- `sql/` : scripts SQL des couches clean (7 fichiers) et analytics (8 fichiers)
+- `scripts/` : chargement des données Olist, exécution des couches SQL, segmentation RFM + MLflow
+- `docker/` : Dockerfiles pour l'API, Streamlit et Airflow
+- `streamlit_app.py` : dashboard 7 pages connecté à PostgreSQL
+- `docker-compose.yml` : orchestration de tous les services
+- `.github/workflows/deploy.yml` : CI/CD GitHub Actions vers EC2
 
 ---
 
