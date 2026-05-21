@@ -70,32 +70,15 @@ SEASONALITY = {
 }
 
 
-def generate_order_id() -> str:
-    """Génère un order_id au format Olist (UUID sans tirets)."""
-    return uuid.uuid4().hex
-
-
-def generate_customer_id() -> str:
-    return uuid.uuid4().hex
-
-
-def pick_payment_type() -> str:
+def pick_payment_type():
     """Choisit un mode de paiement selon les probabilités réelles Olist."""
     types = [p[0] for p in PAYMENT_TYPES]
     weights = [p[1] for p in PAYMENT_TYPES]
     return random.choices(types, weights=weights, k=1)[0]
 
 
-def generate_items(
-    product_ids: list[str] = None,
-    seller_ids: list[str] = None,
-    n_items: int = None,
-) -> list[dict]:
-    """
-    Génère entre 1 et 4 articles par commande.
-    Utilise les vrais product_id et seller_id si fournis.
-    Distribution réaliste : 70% des commandes ont 1 article.
-    """
+def generate_items(product_ids=None, seller_ids=None, n_items=None):
+    """Génère entre 1 et 4 articles par commande. 70% des commandes ont 1 article."""
     if n_items is None:
         n_items = random.choices([1, 2, 3, 4], weights=[0.70, 0.20, 0.07, 0.03])[0]
 
@@ -115,16 +98,8 @@ def generate_items(
     return items
 
 
-def generate_order(
-    purchased_at: datetime = None,
-    product_ids: list[str] = None,
-    seller_ids: list[str] = None,
-) -> dict:
-    """
-    Génère une commande complète réaliste.
-    Chaque commande crée un nouveau client unique (inséré dans raw_customers).
-    Utilise les vrais product_id et seller_id Olist si fournis.
-    """
+def generate_order(purchased_at=None, product_ids=None, seller_ids=None):
+    """Génère une commande complète avec un nouveau client unique."""
     if purchased_at is None:
         purchased_at = datetime.now()
 
@@ -138,9 +113,9 @@ def generate_order(
     payment_type = pick_payment_type()
 
     return {
-        "order_id": generate_order_id(),
-        "customer_id": uuid.uuid4().hex,          # ID unique pour cette commande
-        "customer_unique_id": uuid.uuid4().hex,    # ID unique du client (fidélité)
+        "order_id": uuid.uuid4().hex,
+        "customer_id": uuid.uuid4().hex,
+        "customer_unique_id": uuid.uuid4().hex,
         "customer_city": fake.city(),
         "customer_state": state,
         "order_status": "processing",
@@ -154,17 +129,13 @@ def generate_order(
     }
 
 
-def get_seasonality_factor() -> float:
+def get_seasonality_factor():
     """Retourne le facteur de saisonnalité du mois courant."""
     return SEASONALITY.get(datetime.now().month, 1.0)
 
 
-def get_batch_size() -> int:
-    """
-    Calcule le nombre de commandes à générer par run Airflow (15 min).
-    Base : 10 commandes → ~960/jour en période normale.
-    Avec saisonnalité : jusqu'à ~1440/jour en novembre (Black Friday).
-    """
+def get_batch_size():
+    """Calcule le nombre de commandes à générer par run Airflow (toutes les 15 min)."""
     base = 10
     factor = SEASONALITY.get(datetime.now().month, 1.0)
     return max(1, int(base * factor * random.uniform(0.7, 1.3)))

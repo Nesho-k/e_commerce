@@ -11,8 +11,8 @@ from datetime import datetime
 class OrderItem(BaseModel):
     product_id: str
     seller_id: str
-    price: float = Field(..., gt=0, description="Prix du produit (> 0)")
-    freight_value: float = Field(..., ge=0, description="Frais de port")
+    price: float = Field(..., gt=0)
+    freight_value: float = Field(..., ge=0)
 
 
 class OrderCreate(BaseModel):

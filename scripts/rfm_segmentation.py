@@ -8,6 +8,8 @@ Les résultats sont trackés avec MLflow et sauvegardés dans analytics.customer
 import os
 import pandas as pd
 import numpy as np
+from pyspark.sql import SparkSession
+from pyspark.sql import functions as F
 from sklearn.preprocessing import StandardScaler
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
@@ -18,6 +20,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "raw")
+
 
 def get_engine():
     url = (
@@ -27,27 +31,51 @@ def get_engine():
     return create_engine(url)
 
 
-def compute_rfm(engine):
-    """Calcule les features RFM par client unique."""
-    query = """
-    SELECT
-        c.customer_unique_id,
-        MAX(o.purchased_at)          AS last_order_date,
-        COUNT(DISTINCT o.order_id)   AS frequency,
-        SUM(p.total_payment)         AS monetary
-    FROM clean.customers c
-    JOIN clean.orders o  ON c.customer_id = o.customer_id
-    JOIN clean.payments p ON o.order_id   = p.order_id
-    WHERE o.order_status = 'delivered'
-    GROUP BY c.customer_unique_id
-    """
-    with engine.connect() as conn:
-        df = pd.read_sql(text(query), conn)
+def compute_rfm_spark():
+    """Calcule les features RFM par client avec PySpark, puis convertit en Pandas pour scikit-learn."""
 
-    reference_date = df["last_order_date"].max()
-    df["recency"] = (reference_date - df["last_order_date"]).dt.days
+    spark = SparkSession.builder \
+        .appName("RFM_Segmentation") \
+        .master("local[*]") \
+        .getOrCreate()
+    spark.sparkContext.setLogLevel("WARN")
 
-    return df[["customer_unique_id", "recency", "frequency", "monetary"]]
+    # Lecture des CSV avec PySpark (traitement distribué)
+    orders = spark.read.csv(f"{DATA_DIR}/olist_orders_dataset.csv", header=True, inferSchema=True)
+    customers = spark.read.csv(f"{DATA_DIR}/olist_customers_dataset.csv", header=True, inferSchema=True)
+    payments = spark.read.csv(f"{DATA_DIR}/olist_order_payments_dataset.csv", header=True, inferSchema=True)
+
+    # On garde uniquement les commandes livrées
+    orders = orders.filter(F.col("order_status") == "delivered")
+
+    # Agrégation des paiements par commande (une commande peut avoir plusieurs paiements)
+    payments_agg = payments.groupBy("order_id").agg(
+        F.sum("payment_value").alias("total_payment")
+    )
+
+    # Jointures pour regrouper clients, commandes et paiements
+    df = customers.join(orders, "customer_id").join(payments_agg, "order_id")
+
+    # Date de référence pour calculer la recency
+    reference_date = df.select(F.max("order_purchase_timestamp")).collect()[0][0]
+
+    # Calcul des métriques RFM par client avec groupBy Spark
+    rfm = df.groupBy("customer_unique_id").agg(
+        F.max("order_purchase_timestamp").alias("last_order_date"),
+        F.countDistinct("order_id").alias("frequency"),
+        F.sum("total_payment").alias("monetary")
+    )
+
+    rfm = rfm.withColumn("recency", F.datediff(F.lit(reference_date), F.col("last_order_date")))
+    rfm = rfm.select("customer_unique_id", "recency", "frequency", "monetary").dropna()
+
+    print(f"[SPARK] {rfm.count():,} clients traités")
+
+    # Conversion en Pandas : scikit-learn ne prend pas de DataFrame Spark en entrée
+    df_pandas = rfm.toPandas()
+    spark.stop()
+
+    return df_pandas
 
 
 def label_segments(df):
@@ -79,9 +107,9 @@ def run_segmentation():
     mlflow.set_experiment("rfm_segmentation")
 
     with mlflow.start_run():
-        # 1. Calcul des features RFM
-        df = compute_rfm(engine)
-        print(f"[RFM] {len(df)} clients analysés")
+        # 1. Calcul des features RFM — traitement distribué PySpark → Pandas
+        df = compute_rfm_spark()
+        print(f"[RFM] {len(df):,} clients analysés")
 
         # 2. Normalisation
         features = df[["recency", "frequency", "monetary"]].copy()

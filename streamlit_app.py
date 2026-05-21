@@ -143,9 +143,16 @@ hr { border-color: #D8F3DC; }
 </style>
 """, unsafe_allow_html=True)
 
+# Fonctionne en local (via .streamlit/secrets.toml) et sur Streamlit Community
+def get_secret(key):
+    try:
+        return st.secrets[key]
+    except Exception:
+        return os.getenv(key)
+
 DATABASE_URL = (
-    f"postgresql://{os.getenv('POSTGRES_USER')}:{os.getenv('POSTGRES_PASSWORD')}"
-    f"@{os.getenv('POSTGRES_HOST')}:{os.getenv('POSTGRES_PORT')}/{os.getenv('POSTGRES_DB')}"
+    f"postgresql://{get_secret('POSTGRES_USER')}:{get_secret('POSTGRES_PASSWORD')}"
+    f"@{get_secret('POSTGRES_HOST')}:{get_secret('POSTGRES_PORT')}/{get_secret('POSTGRES_DB')}"
 )
 
 @st.cache_resource
@@ -172,10 +179,8 @@ st.sidebar.markdown("---")
 st.sidebar.title("E-commerce Analytics")
 st.sidebar.markdown("""
 <div style='color:#D8F3DC; font-size:0.88rem; line-height:1.5'>
-Power BI Service nécessite une passerelle pour se connecter à une base locale,
-ce qui le rend incompatible avec notre architecture.
-Streamlit se connecte directement à PostgreSQL, se rafraîchit en temps réel
-et sera déployé sur AWS avec une URL publique.
+Remarque : J'avais prévu de déployer sur AWS mais j'ai atteint 100$ de facture en quelques semaines, 
+j'ai donc migré sur Streamlit Community et Neon (pour la base de données).
 </div>
 """, unsafe_allow_html=True)
 st.sidebar.markdown("---")

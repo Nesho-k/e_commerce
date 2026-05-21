@@ -6,7 +6,6 @@ import os
 import uuid
 import random
 from datetime import datetime
-from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from sqlalchemy import create_engine, text
 from dotenv import load_dotenv
@@ -24,11 +23,18 @@ DATABASE_URL = (
 engine = create_engine(DATABASE_URL)
 
 # --- Cache des vrais IDs Olist (chargés au démarrage) ---
-REAL_IDS: dict = {"product_ids": [], "seller_ids": []}
+REAL_IDS = {"product_ids": [], "seller_ids": []}
+
+# --- App FastAPI ---
+app = FastAPI(
+    title="E-commerce Analytics API",
+    description="API de simulation et ingestion de commandes e-commerce en temps réel.",
+    version="1.0.0",
+)
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
+@app.on_event("startup")
+def load_real_ids():
     """Charge les vrais product_ids et seller_ids Olist au démarrage de l'API."""
     with engine.connect() as conn:
         REAL_IDS["product_ids"] = [
@@ -40,16 +46,6 @@ async def lifespan(app: FastAPI):
     print(f"[STARTUP] IDs chargés : "
           f"{len(REAL_IDS['product_ids'])} produits, "
           f"{len(REAL_IDS['seller_ids'])} vendeurs")
-    yield
-
-
-# --- App FastAPI ---
-app = FastAPI(
-    title="E-commerce Analytics API",
-    description="API de simulation et ingestion de commandes e-commerce en temps réel.",
-    version="1.0.0",
-    lifespan=lifespan,
-)
 
 
 # ---------------------------------------------------------------

@@ -5,6 +5,7 @@ venv/
 
 # Variables d'environnement (credentials)
 .env
+.streamlit/secrets.toml
 
 # Python
 __pycache__/
